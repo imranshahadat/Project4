@@ -4,7 +4,7 @@ from app.core.config import AppSettings, get_settings
 from app.core.exceptions import EmbeddingsProviderError
 from app.domains.infrastructure._builder import build_provider
 from app.domains.interfaces.embeddings import BaseEmbeddings
-from app.domains.infrastructure.embeddings.vercel_embed import VercelEmbeddings
+from app.domains.infrastructure.embeddings.vercel import VercelEmbeddings
 
 EMBEDDINGS_REGISTRY: dict[str, type[BaseEmbeddings]] = {
     "vercel": VercelEmbeddings,

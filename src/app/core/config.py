@@ -27,6 +27,13 @@ class _Base(BaseSettings):
     )
 
 
+class DatabaseSettings(_Base):
+    url: SecretStr = Field(validation_alias="DATABASE_URL")
+    echo: bool = Field(default=False, validation_alias="DB_ECHO")
+    pool_size: int = Field(default=5, validation_alias="DB_POOL_SIZE")
+    max_overflow: int = Field(default=5, validation_alias="DB_MAX_OVERFLOW")
+
+
 class ProviderEnum(str, Enum):
     VERCEL = "vercel"
     AWS = "aws"
@@ -120,6 +127,7 @@ class AppSettings(_Base):
     aws: AWSSettings = Field(default_factory=AWSSettings)
     chunk: ChunkSettings = Field(default_factory=ChunkSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
 
 
 @lru_cache(maxsize=1)

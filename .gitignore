@@ -240,4 +240,4 @@ dist/
 
 # generated files
 docs/*.html
-EOF
+EOF*.egg-info/
