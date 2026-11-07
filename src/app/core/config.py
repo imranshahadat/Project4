@@ -1,0 +1,131 @@
+"""Central settings (pydantic-settings). Everything comes from Project4/.env.
+
+Integrations not wired up yet (AWS, Pinecone, DB) are Optional so the app
+boots today; adapters fail fast with APIKeyMissingError when actually used.
+"""
+
+from enum import Enum
+from functools import lru_cache
+from pathlib import Path
+from typing import Optional
+
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.exceptions import ConfigError
+
+# config.py is at src/app/core/config.py -> parents[3] == Project4/
+BASE_DIR = Path(__file__).resolve().parents[3]
+ENV_FILE = BASE_DIR / ".env"
+
+
+class _Base(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(ENV_FILE),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+class ProviderEnum(str, Enum):
+    VERCEL = "vercel"
+    AWS = "aws"
+    PINECONE = "pinecone"
+
+
+class VercelSettings(_Base):
+    base_url: str = Field(
+        default="https://ai-gateway.vercel.sh/v1",
+        validation_alias="VERCEL_BASE_URL",
+    )
+    api_key: Optional[SecretStr] = Field(
+        default=None, validation_alias="VERCEL_API_KEY"
+    )
+
+
+class LangChainSettings(_Base):
+    tracing_v2: bool = Field(default=False, validation_alias="LANGCHAIN_TRACING_V2")
+    api_key: Optional[SecretStr] = Field(
+        default=None, validation_alias="LANGCHAIN_API_KEY"
+    )
+
+
+class PineconeSettings(_Base):
+    api_key: Optional[SecretStr] = Field(
+        default=None, validation_alias="PINECONE_API_KEY"
+    )
+    index_host: Optional[str] = Field(
+        default=None, validation_alias="PINECONE_INDEX_HOST"
+    )
+    environment: str = Field(default="", validation_alias="PINECONE_ENVIRONMENT")
+    dimension: int = Field(default=1024, validation_alias="PINECONE_DIMENSION")
+    cloud: str = Field(default="aws", validation_alias="PINECONE_CLOUD")
+    region: str = Field(default="us-east-1", validation_alias="PINECONE_REGION")
+    read_timeout: int = Field(default=180, validation_alias="PINECONE_READ_TIMEOUT")
+
+
+class AWSSettings(_Base):
+    access_key_id: Optional[str] = Field(
+        default=None, validation_alias="AWS_ACCESS_KEY_ID"
+    )
+    secret_access_key: Optional[SecretStr] = Field(
+        default=None, validation_alias="AWS_SECRET_ACCESS_KEY"
+    )
+    region: str = Field(default="us-east-1", validation_alias="AWS_REGION")
+    s3_bucket_name: Optional[str] = Field(
+        default=None, validation_alias="AWS_S3_BUCKET_NAME"
+    )
+
+
+class ChunkSettings(_Base):
+    size: int = Field(default=500, validation_alias="CHUNK_SIZE")
+    overlap: int = Field(default=50, validation_alias="CHUNK_OVERLAP")
+
+
+class RetrievalSettings(_Base):
+    default_k: int = Field(default=4, validation_alias="DEFAULT_RETRIEVAL_K")
+    hybrid_fetch_k: int = Field(default=20, validation_alias="HYBRID_FETCH_K")
+    use_reranker: bool = Field(default=True, validation_alias="USE_RERANKER")
+    reranker_model: str = Field(default="", validation_alias="RERANKER_MODEL")
+    similarity_threshold: float = Field(
+        default=0.70, validation_alias="SIMILARITY_THRESHOLD"
+    )
+
+
+class AppSettings(_Base):
+    # --- providers used today (sensible defaults, .env overrides) ---
+    embedding_provider: ProviderEnum = Field(
+        default=ProviderEnum.VERCEL, validation_alias="EMBEDDING_PROVIDER"
+    )
+    embedding_model: str = Field(
+        default="cohere/embed-v4.0", validation_alias="EMBEDDING_MODEL"
+    )
+    embedding_dimensions: int = Field(
+        default=1024, validation_alias="EMBEDDING_DIMENSIONS"
+    )
+
+    llm_provider: ProviderEnum = Field(
+        default=ProviderEnum.VERCEL, validation_alias="LLM_PROVIDER"
+    )
+    llm_model: str = Field(default="openai/gpt-4o-mini", validation_alias="LLM_MODEL")
+
+    vercel: VercelSettings = Field(default_factory=VercelSettings)
+    langchain: LangChainSettings = Field(default_factory=LangChainSettings)
+
+    # --- not wired up yet: optional so the app still boots ---
+    database_url: Optional[SecretStr] = Field(
+        default=None, validation_alias="DATABASE_URL"
+    )
+    pinecone: PineconeSettings = Field(default_factory=PineconeSettings)
+    aws: AWSSettings = Field(default_factory=AWSSettings)
+    chunk: ChunkSettings = Field(default_factory=ChunkSettings)
+    retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> AppSettings:
+    """Cached accessor. Call this everywhere instead of importing a global."""
+    try:
+        return AppSettings()
+    except Exception as e:  # fail fast with a readable message
+        raise ConfigError(f"Invalid configuration: {e}") from e
