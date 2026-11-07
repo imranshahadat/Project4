@@ -417,7 +417,7 @@ def reset_all_caches() -> None:
 | `LANGCHAIN_TRACING_V2` | `false` | — | LangSmith tracing toggle |
 | `LANGCHAIN_API_KEY` | — | — | LangSmith key |
 | `DATABASE_URL` | — | — | Future use |
-| `PINECONE_API_KEY` / `_INDEX_HOST` / `_DIMENSION` / `_CLOUD` / `_REGION` / `_ENVIRONMENT` / `_READ_TIMEOUT` | — | — | Future Pinecone adapter |
+| `PINECONE_API_KEY` / `_index_name` / `_DIMENSION` / `_CLOUD` / `_REGION` / `_ENVIRONMENT` / `_READ_TIMEOUT` | — | — | Future Pinecone adapter |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `AWS_S3_BUCKET_NAME` | — | — | Future S3/Bedrock |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `500` / `50` | — | Future ingestion |
 | `DEFAULT_RETRIEVAL_K` / `HYBRID_FETCH_K` | `4` / `20` | — | Future retrieval |
@@ -578,7 +578,7 @@ VERCEL_BASE_URL=https://ai-gateway.vercel.sh/v1
 
 # ---- future: pinecone ----
 # PINECONE_API_KEY=
-# PINECONE_INDEX_HOST=
+# PINECONE_INDEX_NAME=
 # PINECONE_DIMENSION=1024
 
 # ---- future: aws ----

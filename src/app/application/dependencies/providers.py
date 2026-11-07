@@ -16,6 +16,11 @@ from app.domains.interfaces.embeddings import BaseEmbeddings
 from app.domains.interfaces.llm import BaseLLM
 from app.domains.interfaces.repositories import BaseDocumentRepository
 
+from app.domains.infrastructure.storage.factory import build_storage
+from app.domains.infrastructure.vector_store.factory import build_vector_store
+from app.domains.interfaces.storage import BaseStorage
+from app.domains.interfaces.vector_store import BaseVectorStore
+
 
 # ---------------- LLM ----------------
 @lru_cache(maxsize=1)
@@ -33,6 +38,23 @@ def get_embeddings() -> BaseEmbeddings:
 @lru_cache(maxsize=1)
 def get_vector_store():
     raise NotImplementedError("Pinecone adapter comes next")
+
+
+# ---------------- Vector store ----------------
+@lru_cache(maxsize=1)
+def get_vector_store() -> BaseVectorStore:
+    return build_vector_store()
+
+
+# ---------------- Object storage (S3) ----------------
+@lru_cache(maxsize=1)
+def get_storage() -> BaseStorage:
+    return build_storage()
+
+
+def reset_all_caches() -> None:
+    for fn in (get_llm, get_embeddings, get_vector_store, get_storage):
+        fn.cache_clear()
 
 
 # ---------------- Database ----------------

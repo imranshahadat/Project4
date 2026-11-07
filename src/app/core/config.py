@@ -61,10 +61,15 @@ class PineconeSettings(_Base):
     api_key: Optional[SecretStr] = Field(
         default=None, validation_alias="PINECONE_API_KEY"
     )
-    index_host: Optional[str] = Field(
-        default=None, validation_alias="PINECONE_INDEX_HOST"
+    index_name: Optional[str] = Field(
+        default=None, validation_alias="PINECONE_INDEX_NAME"
     )
-    environment: str = Field(default="", validation_alias="PINECONE_ENVIRONMENT")
+    namespace: str = Field(
+        default="", validation_alias="PINECONE_NAMESPACE"
+    )  # optional partition
+    environment: str = Field(
+        default="", validation_alias="PINECONE_ENVIRONMENT"
+    )  # legacy (pod) — unused for serverless
     dimension: int = Field(default=1024, validation_alias="PINECONE_DIMENSION")
     cloud: str = Field(default="aws", validation_alias="PINECONE_CLOUD")
     region: str = Field(default="us-east-1", validation_alias="PINECONE_REGION")
@@ -82,6 +87,7 @@ class AWSSettings(_Base):
     s3_bucket_name: Optional[str] = Field(
         default=None, validation_alias="AWS_S3_BUCKET_NAME"
     )
+    presign_expiry: int = Field(default=3600, validation_alias="S3_PRESIGN_EXPIRY")
 
 
 class ChunkSettings(_Base):
@@ -128,6 +134,13 @@ class AppSettings(_Base):
     chunk: ChunkSettings = Field(default_factory=ChunkSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+
+    vector_store_provider: ProviderEnum = Field(
+        default=ProviderEnum.PINECONE, validation_alias="VECTOR_STORE_PROVIDER"
+    )
+    storage_provider: ProviderEnum = Field(
+        default=ProviderEnum.AWS, validation_alias="STORAGE_PROVIDER"
+    )
 
 
 @lru_cache(maxsize=1)

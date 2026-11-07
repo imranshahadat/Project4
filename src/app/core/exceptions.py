@@ -24,3 +24,10 @@ class EmbeddingsProviderError(ProviderError): ...
 
 
 class VectorStoreProviderError(ProviderError): ...
+
+
+class StorageError(AppError):
+    """Object storage failure (missing object, upload error, ...)."""
+
+
+class StorageProviderError(ProviderError): ...
