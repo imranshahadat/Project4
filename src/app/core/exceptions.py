@@ -31,3 +31,19 @@ class StorageError(AppError):
 
 
 class StorageProviderError(ProviderError): ...
+
+
+class DocumentNotFoundError(AppError):
+    """A requested document row does not exist."""
+
+
+class UnsupportedFileTypeError(AppError):
+    """No extractor registered for this file extension."""
+
+
+class TextExtractionError(AppError):
+    """Could not extract usable text (empty file / scanned PDF)."""
+
+
+class FileValidationError(AppError):
+    """Uploaded file failed validation (empty, too large, unsupported)."""

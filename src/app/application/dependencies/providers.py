@@ -21,6 +21,12 @@ from app.domains.infrastructure.vector_store.factory import build_vector_store
 from app.domains.interfaces.storage import BaseStorage
 from app.domains.interfaces.vector_store import BaseVectorStore
 
+from app.domains.infrastructure.database.postgres_repositories import (
+    PostgresAuditRepository,
+    PostgresDocumentRepository,
+)
+from app.domains.interfaces.audit import BaseAuditRepository
+
 
 # ---------------- LLM ----------------
 @lru_cache(maxsize=1)
@@ -72,9 +78,16 @@ def get_db_session() -> Iterator[Session]:
         session.close()
 
 
+@lru_cache(maxsize=1)
 def build_document_repository(session: Session) -> BaseDocumentRepository:
     """Attach a repository to a session you already opened."""
     return PostgresDocumentRepository(session)
+
+
+@lru_cache(maxsize=1)
+def build_audit_repository(session: Session) -> BaseAuditRepository:
+    """Attach an audit repository to a session you already opened."""
+    return PostgresAuditRepository(session)
 
 
 # ---------------- Testing helper ----------------
