@@ -1,7 +1,6 @@
 -- Reference DDL. scripts/init_db.py creates the schema from the SQLAlchemy
 -- models; keep this file in sync. Alternative bootstrap:
 --   psql "$DATABASE_URL" -f db/reference_schema.sql
-
 CREATE TABLE IF NOT EXISTS documents (
     id VARCHAR(36) PRIMARY KEY,
     title VARCHAR(512) NOT NULL,
@@ -10,6 +9,7 @@ CREATE TABLE IF NOT EXISTS documents (
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CONSTRAINT ck_documents_status CHECK (
         status IN ('pending', 'processing', 'ready', 'failed')
     ),
+    metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

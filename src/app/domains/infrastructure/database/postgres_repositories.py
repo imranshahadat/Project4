@@ -31,23 +31,8 @@ def _doc_metadata(doc: Document) -> dict[str, Any]:
 
 
 class PostgresDocumentRepository(BaseDocumentRepository):
-    _STATUSES = {"pending", "processing", "ready", "failed"}
-
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session):
         self._session = session
-
-    @staticmethod
-    def _to_dict(doc: Document) -> dict[str, Any]:
-        return {
-            "id": doc.id,
-            "title": doc.title,
-            "content": doc.content,
-            "source": doc.source,
-            "status": doc.status,
-            "created_at": doc.created_at,
-            "updated_at": getattr(doc, "updated_at", None),
-            "metadata": _doc_metadata(doc),
-        }
 
     def add(
         self,
@@ -58,41 +43,25 @@ class PostgresDocumentRepository(BaseDocumentRepository):
     ) -> str:
         doc = Document(title=title, content=content, source=source)
         if metadata is not None:
-            # Set via __dict__ to bypass the reserved 'metadata' attribute,
-            # then flag_modified so SQLAlchemy's unit-of-work picks it up.
-            doc.__dict__["metadata"] = metadata
-            flag_modified(doc, "metadata")
+            # FIXED: Clean attribute assignment. SQLAlchemy tracks this automatically.
+            doc.doc_metadata = metadata
         self._session.add(doc)
         self._session.flush()
         return doc.id
 
-    def get(self, doc_id: str) -> Optional[dict[str, Any]]:
-        doc = self._session.get(Document, doc_id)
-        return self._to_dict(doc) if doc else None
+    def get(self, doc_id: str) -> Optional[Document]:
+        return self._session.get(Document, doc_id)
 
-    def find_by_source(self, source: str) -> Optional[dict[str, Any]]:
-        doc = (
-            self._session.query(Document)
-            .filter(Document.source == source)
-            .order_by(Document.created_at.desc())
-            .first()
-        )
-        return self._to_dict(doc) if doc else None
-
-    def list(self, limit: int = 50) -> list[dict[str, Any]]:
-        docs = (
+    def list_all(self, limit: int = 100, offset: int = 0) -> list[Document]:
+        return (
             self._session.query(Document)
             .order_by(Document.created_at.desc())
             .limit(limit)
+            .offset(offset)
             .all()
         )
-        return [self._to_dict(d) for d in docs]
 
     def update_status(self, doc_id: str, status: str) -> None:
-        if status not in self._STATUSES:
-            raise ValueError(
-                f"Invalid status '{status}'. Allowed: {sorted(self._STATUSES)}"
-            )
         doc = self._session.get(Document, doc_id)
         if doc is None:
             raise DocumentNotFoundError(f"Document '{doc_id}' not found")
@@ -110,9 +79,15 @@ class PostgresDocumentRepository(BaseDocumentRepository):
         doc = self._session.get(Document, doc_id)
         if doc is None:
             raise DocumentNotFoundError(f"Document '{doc_id}' not found")
-        doc.__dict__["metadata"] = metadata
-        flag_modified(doc, "metadata")
+        # FIXED: Clean attribute assignment
+        doc.doc_metadata = metadata
         self._session.flush()
+
+    def delete(self, doc_id: str) -> None:
+        doc = self._session.get(Document, doc_id)
+        if doc is not None:
+            self._session.delete(doc)
+            self._session.flush()
 
 
 class PostgresAuditRepository(BaseAuditRepository):

@@ -13,3 +13,4 @@ python-dotenv
 glassflow-rius
 mlflow
 langchain-openai
+pytest
