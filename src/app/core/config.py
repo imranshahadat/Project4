@@ -28,7 +28,9 @@ class _Base(BaseSettings):
 
 
 class DatabaseSettings(_Base):
-    url: SecretStr = Field(validation_alias="DATABASE_URL")
+    # FIXED: Made Optional so the app can boot without it, but downstream
+    # services will raise APIKeyMissingError/ConfigError when actually used.
+    url: Optional[SecretStr] = Field(default=None, validation_alias="DATABASE_URL")
     echo: bool = Field(default=False, validation_alias="DB_ECHO")
     pool_size: int = Field(default=5, validation_alias="DB_POOL_SIZE")
     max_overflow: int = Field(default=5, validation_alias="DB_MAX_OVERFLOW")
@@ -64,12 +66,8 @@ class PineconeSettings(_Base):
     index_name: Optional[str] = Field(
         default=None, validation_alias="PINECONE_INDEX_NAME"
     )
-    namespace: str = Field(
-        default="", validation_alias="PINECONE_NAMESPACE"
-    )  # optional partition
-    environment: str = Field(
-        default="", validation_alias="PINECONE_ENVIRONMENT"
-    )  # legacy (pod) — unused for serverless
+    namespace: str = Field(default="", validation_alias="PINECONE_NAMESPACE")
+    environment: str = Field(default="", validation_alias="PINECONE_ENVIRONMENT")
     dimension: int = Field(default=1024, validation_alias="PINECONE_DIMENSION")
     cloud: str = Field(default="aws", validation_alias="PINECONE_CLOUD")
     region: str = Field(default="us-east-1", validation_alias="PINECONE_REGION")
@@ -106,8 +104,6 @@ class RetrievalSettings(_Base):
 
 
 class ChatSettings(_Base):
-    """Chat / RAG pipeline knobs."""
-
     history_turns: int = Field(default=6, validation_alias="CHAT_HISTORY_TURNS")
     rewrite_followup: bool = Field(
         default=True, validation_alias="CHAT_REWRITE_FOLLOWUP"
@@ -122,12 +118,6 @@ class ChatSettings(_Base):
 
 
 class GuardrailSettings(_Base):
-    """Input/output guardrail configuration.
-
-    Guards run in parallel by default. Add new guards in the factory registry,
-    then list their names here via INPUT_GUARDS / OUTPUT_GUARDS (CSV).
-    """
-
     enabled: bool = Field(default=True, validation_alias="GUARDRAILS_ENABLED")
     parallel: bool = Field(default=True, validation_alias="GUARDRAILS_PARALLEL")
     input_guards: str = Field(
@@ -140,15 +130,10 @@ class GuardrailSettings(_Base):
     pii_block_output: bool = Field(default=True, validation_alias="PII_BLOCK_OUTPUT")
     toxicity_banned_words: str = Field(
         default="", validation_alias="TOXICITY_BANNED_WORDS"
-    )  # CSV
+    )
 
 
 class AccessControlSettings(_Base):
-    """Tenant / group / subject access filter for vector-store queries.
-
-    Disabled by default — enable once ingestion tags chunks with tenant_id.
-    """
-
     enabled: bool = Field(default=False, validation_alias="ACCESS_CONTROL_ENABLED")
 
 
@@ -172,15 +157,12 @@ class AppSettings(_Base):
     vercel: VercelSettings = Field(default_factory=VercelSettings)
     langchain: LangChainSettings = Field(default_factory=LangChainSettings)
 
-    # --- not wired up yet: optional so the app still boots ---
-    database_url: Optional[SecretStr] = Field(
-        default=None, validation_alias="DATABASE_URL"
-    )
+    # --- integrations (optional so the app still boots, adapters fail fast when used) ---
     pinecone: PineconeSettings = Field(default_factory=PineconeSettings)
     aws: AWSSettings = Field(default_factory=AWSSettings)
-    chunk: ChunkSettings = Field(default_factory=ChunkSettings)
-    retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+
+    # FIXED: Removed redundant 'database_url' field that conflicted with DatabaseSettings.url
 
     vector_store_provider: ProviderEnum = Field(
         default=ProviderEnum.PINECONE, validation_alias="VECTOR_STORE_PROVIDER"
@@ -200,5 +182,5 @@ def get_settings() -> AppSettings:
     """Cached accessor. Call this everywhere instead of importing a global."""
     try:
         return AppSettings()
-    except Exception as e:  # fail fast with a readable message
+    except Exception as e:
         raise ConfigError(f"Invalid configuration: {e}") from e

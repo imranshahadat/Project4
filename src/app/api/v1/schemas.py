@@ -9,8 +9,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ---------- principal ----------
+
 
 class PrincipalPayload(BaseModel):
     """Caller identity. Usually extracted from headers by deps.get_principal()."""
@@ -23,6 +23,7 @@ class PrincipalPayload(BaseModel):
 
 
 # ---------- chat ----------
+
 
 class ChatRequest(BaseModel):
     """POST /api/v1/chat body. Principal comes from request headers."""
@@ -75,6 +76,7 @@ class ChatResponse(BaseModel):
 
 # ---------- history ----------
 
+
 class HistoryItem(BaseModel):
     id: str
     role: str
@@ -89,6 +91,7 @@ class HistoryResponse(BaseModel):
 
 
 # ---------- documents ----------
+
 
 class DocumentUploadResponse(BaseModel):
     doc_id: str
@@ -126,6 +129,7 @@ class DocumentDetail(BaseModel):
 
 # ---------- health ----------
 
+
 class ComponentHealth(BaseModel):
     ok: bool
     detail: Optional[Any] = None
@@ -138,6 +142,7 @@ class HealthResponse(BaseModel):
 
 
 # ---------- errors ----------
+
 
 class ErrorResponse(BaseModel):
     error: str

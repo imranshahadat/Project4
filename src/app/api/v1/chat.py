@@ -16,7 +16,6 @@ from app.api.v1.schemas import (
     ChatRequest,
     ChatResponse,
     HistoryResponse,
-    PrincipalPayload,
 )
 from app.application.dependencies.providers import (
     build_chat_history_repository,
@@ -46,9 +45,7 @@ async def chat_endpoint(
 
     # Offload the sync pipeline to a thread — the event loop handles
     # other HTTP requests while the LLM call is in flight.
-    result = await asyncio.to_thread(
-        chat, principal, body.question, body.thread_id
-    )
+    result = await asyncio.to_thread(chat, principal, body.question, body.thread_id)
 
     duration_ms = (time.perf_counter() - start) * 1000
     log.info(
@@ -66,8 +63,20 @@ async def chat_endpoint(
     response_model=HistoryResponse,
     summary="Load conversation history",
 )
-async def get_history(thread_id: str) -> HistoryResponse:
-    """Return the most recent messages for a thread (oldest-first)."""
+async def get_history(
+    thread_id: str,
+    principal: Principal = Depends(get_principal),
+) -> HistoryResponse:
+    """Return the most recent messages for a thread (oldest-first).
+
+    FIXED: Added `Depends(get_principal)` to enforce authentication.
+    Previously, this endpoint was publicly accessible, allowing anyone
+    to read any thread's history by guessing the thread_id.
+
+    NOTE: The repository layer (`repo.get_history`) should ideally be
+    updated to filter results by `principal.tenant_id` and `principal.subject_id`
+    to ensure strict multi-tenant data isolation.
+    """
     with get_db_session() as session:
         repo = build_chat_history_repository(session)
         messages = repo.get_history(thread_id, limit=50)

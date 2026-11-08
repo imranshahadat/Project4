@@ -17,20 +17,32 @@ class ProviderError(AppError):
     """A provider could not be resolved or initialised."""
 
 
-class LLMProviderError(ProviderError): ...
+class LLMProviderError(ProviderError):
+    """LLM provider specific error."""
+
+    pass
 
 
-class EmbeddingsProviderError(ProviderError): ...
+class EmbeddingsProviderError(ProviderError):
+    """Embeddings provider specific error."""
+
+    pass
 
 
-class VectorStoreProviderError(ProviderError): ...
+class VectorStoreProviderError(ProviderError):
+    """Vector store provider specific error."""
+
+    pass
 
 
 class StorageError(AppError):
     """Object storage failure (missing object, upload error, ...)."""
 
 
-class StorageProviderError(ProviderError): ...
+class StorageProviderError(ProviderError):
+    """Storage provider specific error."""
+
+    pass
 
 
 class DocumentNotFoundError(AppError):

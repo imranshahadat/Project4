@@ -4,6 +4,8 @@ These bridge FastAPI's DI into the app's existing composition root
 (`app.application.dependencies.providers`). No business logic here.
 """
 
+"""FastAPI dependencies for the API layer."""
+
 from typing import Annotated, Optional
 
 from fastapi import Header
@@ -23,6 +25,9 @@ def get_principal(
     In production these headers are set by your auth gateway / JWT middleware.
     For local dev they default to anonymous (tenant='public', no groups).
 
+    SECURITY NOTE: In a strict production environment, missing auth headers
+    should return 401 Unauthorized. This default is for local dev convenience.
+
     Header → Principal mapping:
       X-Tenant-Id   -> tenant_id
       X-Subject-Id  -> subject_id
@@ -30,6 +35,7 @@ def get_principal(
       X-Roles       -> roles (CSV)
       X-Is-Admin    -> is_admin (truthy: "1","true","yes")
     """
+
     def _csv(value: Optional[str]) -> tuple[str, ...]:
         if not value:
             return ()

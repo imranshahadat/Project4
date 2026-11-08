@@ -50,7 +50,9 @@ def _allowed(filename: str) -> bool:
     return ext in EXTRACTOR_REGISTRY
 
 
-@router.post("/upload", response_model=DocumentUploadResponse, summary="Upload a document")
+@router.post(
+    "/upload", response_model=DocumentUploadResponse, summary="Upload a document"
+)
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -103,7 +105,9 @@ async def upload_document(
     s3_key = f"documents/{doc_id}/{filename}"
     try:
         storage = get_storage()
-        storage.put(s3_key, data, content_type=file.content_type or "application/octet-stream")
+        storage.put(
+            s3_key, data, content_type=file.content_type or "application/octet-stream"
+        )
     except Exception as e:
         log.exception("S3 upload failed for %s", s3_key)
         raise HTTPException(status_code=502, detail=f"Storage upload failed: {e}")
@@ -158,13 +162,16 @@ async def delete_document(doc_id: str) -> dict:
         repo = build_document_repository(session)
         doc = repo.get(doc_id)
         if doc is None:
-            raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Document '{doc_id}' not found"
+            )
 
         source = doc.get("source")
 
         # delete from vector store
         try:
             from app.application.dependencies.providers import get_vector_store
+
             get_vector_store().delete_by_filter({"doc_id": {"$eq": doc_id}})
         except Exception as e:
             log.warning("vector store delete failed for %s: %s", doc_id, e)
@@ -178,6 +185,7 @@ async def delete_document(doc_id: str) -> dict:
 
         # delete from DB — we need a raw delete since the repo doesn't have one
         from app.domains.infrastructure.database.models import Document
+
         session.query(Document).filter(Document.id == doc_id).delete()
         session.flush()
 
@@ -194,7 +202,9 @@ async def reingest_document(
         repo = build_document_repository(session)
         doc = repo.get(doc_id)
         if doc is None:
-            raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Document '{doc_id}' not found"
+            )
         if not doc.get("source"):
             raise HTTPException(status_code=400, detail="Document has no source file")
         repo.update_status(doc_id, "pending")

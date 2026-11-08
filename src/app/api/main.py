@@ -29,7 +29,7 @@ from app.api.errors import (
 )
 from app.api.middleware import RequestIDMiddleware
 from app.api.v1.router import v1_router
-from app.core.exceptions import AppError
+from app.core.exceptions import AppError, ConfigError
 
 log = logging.getLogger(__name__)
 
@@ -45,18 +45,26 @@ async def lifespan(app: FastAPI):
         level=logging.INFO,
         format="%(asctime)s %(levelname)-5s %(name)s: %(message)s",
     )
+
     # Pre-build the graph + providers so the first request is fast.
-    # These are lru_cached — if they fail, the error surfaces here
-    # (fail-fast at boot) rather than on the first user request.
     try:
         from app.application.services.chat import build_chat_graph
+
         build_chat_graph.cache_clear()
         build_chat_graph()  # compile the LangGraph
-        log.info("startup: chat graph compiled")
+        log.info("startup: chat graph compiled successfully")
+    except ConfigError as e:
+        # FIXED: Fatal configuration errors should fail fast, even in dev.
+        # Prevents the app from starting in a broken state and failing on first request.
+        log.error("startup: fatal configuration error: %s", e)
+        raise
     except Exception as e:
         # Non-fatal: the graph will build lazily on first request.
-        # Providers may not be configured yet (e.g. during local dev).
-        log.warning("startup: could not pre-build chat graph: %s", e)
+        # Providers may not be configured yet (e.g., during local dev).
+        log.warning(
+            "startup: could not pre-build chat graph (will lazy-load on first request): %s",
+            e,
+        )
 
     yield
     log.info("shutdown: cleaning up")

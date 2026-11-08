@@ -19,7 +19,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     tracing). Otherwise we generate one.
     """
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
         request.state.request_id = rid
 

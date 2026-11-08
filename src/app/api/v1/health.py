@@ -20,6 +20,7 @@ router = APIRouter(prefix="/health", tags=["health"])
 async def _check_db() -> ComponentHealth:
     def _probe():
         from app.domains.infrastructure.database.engine import check_database
+
         return check_database()
 
     try:
@@ -33,6 +34,7 @@ async def _check_db() -> ComponentHealth:
 async def _check_vector_store() -> ComponentHealth:
     def _probe():
         from app.application.dependencies.providers import get_vector_store
+
         return get_vector_store().stats()
 
     try:
@@ -46,6 +48,7 @@ async def _check_vector_store() -> ComponentHealth:
 async def _check_llm() -> ComponentHealth:
     def _probe():
         from app.application.dependencies.providers import get_llm
+
         get_llm()  # just verify it builds — no actual call
         return True
 
@@ -60,9 +63,7 @@ async def _check_llm() -> ComponentHealth:
 @router.get("", response_model=HealthResponse, summary="Service health")
 async def health() -> HealthResponse:
     """Parallel probe of DB + vector store + LLM provider."""
-    results = await asyncio.gather(
-        _check_db(), _check_vector_store(), _check_llm()
-    )
+    results = await asyncio.gather(_check_db(), _check_vector_store(), _check_llm())
     components = {"database": results[0], "vector_store": results[1], "llm": results[2]}
     all_ok = all(c.ok for c in components.values())
     return HealthResponse(

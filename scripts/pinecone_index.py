@@ -41,16 +41,22 @@ def main() -> None:
         )
 
     # wait until ready
+    # FIXED: Pinecone SDK v10+ returns an IndexModel object, not a dict.
+    # Use attribute access (desc.status.ready) instead of desc.get("status", {}).get("ready").
     for _ in range(60):
         desc = pc.describe_index(INDEX_NAME)
-        if desc.get("status", {}).get("ready"):
+        # desc is an IndexModel — access via attributes
+        status = getattr(desc, "status", None)
+        if status is not None and getattr(status, "ready", False):
             break
         time.sleep(2)
     else:
         raise SystemExit("Index did not become ready in time")
 
     # --- verification 1: shape of the description ---
-    keys = sorted(desc.keys())
+    # Convert IndexModel to dict for key inspection
+    desc_dict = desc.model_dump() if hasattr(desc, "model_dump") else vars(desc)
+    keys = sorted(desc_dict.keys())
     print("description keys:", keys)
     if any(k in keys for k in ("embed", "schema", "model")):
         raise SystemExit(
@@ -59,7 +65,8 @@ def main() -> None:
         )
 
     # --- verification 2: an actual write/delete roundtrip ---
-    host = desc["host"]
+    # FIXED: Use attribute access for host instead of desc["host"]
+    host = desc.host
     idx = pc.Index(host=host)
     try:
         idx.upsert(
