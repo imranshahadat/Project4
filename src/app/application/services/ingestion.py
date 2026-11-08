@@ -1,24 +1,28 @@
-"""Ingestion pipeline :
+"""Ingestion pipeline — updated to propagate document metadata into chunk metadata.
 
-upload -> S3 -> process_s3_key(key)
-  CHECK DATABASE   (missing -> RETURN, ready -> RETURN)
-  CHECK STATUS     (only pending/failed proceed)
-  STATUS = PROCESSING
-  DOWNLOAD FROM S3
-  VALIDATE FILE    (pdf | docx | txt/md dispatch)
-  EXTRACT TEXT     (PdfReader / python-docx / UTF-8)
-  chunks(text)     (size + overlap from .env)
-  GENERATE EMBEDDINGS (embed(part), batches of 64)
-  CREATE VECTOR DATA  (ids "{doc_id}:{i}" + metadata)
-  UPSERT INTO PINECONE (adapter batches at 100)
-  STATUS = READY -> AUDIT DATABASE -> LOG SUCCESS
+CHANGES from original:
+  - chunk metadata now includes tenant_id, shared_groups, shared_subjects
+    pulled from the Document row's metadata JSONB
+  - this is what makes the access-control filter in retrieve_node actually match
 
-ERROR HANDLING: any exception -> log -> STATUS=failed -> AUDIT -> RAISE
+Flow:
+  upload -> S3 -> process_s3_key(key)
+    CHECK DATABASE   (missing -> RETURN, ready -> RETURN)
+    CHECK STATUS     (only pending/failed proceed)
+    STATUS = PROCESSING
+    DOWNLOAD FROM S3
+    VALIDATE FILE    (pdf | docx | txt/md dispatch)
+    EXTRACT TEXT     (PdfReader / python-docx / UTF-8)
+    chunks(text)     (size + overlap from .env)
+    GENERATE EMBEDDINGS (embed(part), batches of 64)
+    CREATE VECTOR DATA  (ids "{doc_id}:{i}" + metadata WITH ACCESS TAGS)
+    UPSERT INTO PINECONE (adapter batches at 100)
+    STATUS = READY -> AUDIT DATABASE -> LOG SUCCESS
 """
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from app.application.dependencies.providers import (
     build_audit_repository,
@@ -42,9 +46,9 @@ from app.domains.infrastructure.extractors.factory import (
 
 log = logging.getLogger(__name__)
 
-EMBED_BATCH = 64  # embeddings per request
+EMBED_BATCH = 64
 MAX_FILE_BYTES = 25 * 1024 * 1024  # 25 MB upload guard
-PROCEED_STATUSES = {"pending", "failed"}  # 'processing' skip = concurrency guard
+PROCEED_STATUSES = {"pending", "failed"}
 
 
 @dataclass
@@ -86,7 +90,7 @@ def process_s3_key(key: str) -> IngestionResult:
         # --- VALIDATE FILE ------------------------------------------------------
         _validate_file(data, key)
 
-        # --- EXTRACT TEXT (pdf -> PdfReader, docx -> python-docx, txt -> utf-8) --
+        # --- EXTRACT TEXT ------------------------------------------------------
         text = get_extractor(key).extract(data, key)
         if not text.strip():
             raise TextExtractionError(
@@ -104,10 +108,29 @@ def process_s3_key(key: str) -> IngestionResult:
         # --- GENERATE EMBEDDINGS (batched) ------------------------------------------
         vectors = _embed_in_batches(chunks)
 
-        # --- CREATE VECTOR DATA -------------------------------------------------
+        # --- CREATE VECTOR DATA (with access-control metadata) -----------------
+        # Pull access tags from the document's metadata so the retrieve node's
+        # access filter can match them.
+        doc_meta = doc.get("metadata") or {}
+        tenant_id = doc_meta.get("tenant_id", "public")
+        shared_groups = doc_meta.get("shared_groups", [])
+        shared_subjects = doc_meta.get("shared_subjects", [])
+        tags = doc_meta.get("tags", [])
+
         ids = [f"{doc_id}:{i}" for i in range(len(chunks))]
         metadatas = [
-            {"doc_id": doc_id, "chunk_index": i, "title": doc["title"], "text": chunk}
+            {
+                "doc_id": doc_id,
+                "chunk_index": i,
+                "title": doc["title"],
+                "text": chunk,
+                # access-control fields — match the TenantAccessFilterBuilder
+                "tenant_id": tenant_id,
+                "shared_groups": shared_groups,
+                "shared_subjects": shared_subjects,
+                # searchable tags for future hybrid filtering
+                "tags": tags,
+            }
             for i, chunk in enumerate(chunks)
         ]
 
@@ -118,8 +141,12 @@ def process_s3_key(key: str) -> IngestionResult:
 
         # --- STATUS = READY -> AUDIT -> LOG SUCCESS -------------------------------
         _set_status(doc_id, "ready")
-        _audit("document.ingested", doc_id, {"chunks": len(chunks), "source": key})
-        log.info("Ingestion complete: %s (%d vectors)", doc_id, len(chunks))
+        _audit(
+            "document.ingested",
+            doc_id,
+            {"chunks": len(chunks), "source": key, "tenant_id": tenant_id},
+        )
+        log.info("Ingestion complete: %s (%d vectors, tenant=%s)", doc_id, len(chunks), tenant_id)
         return IngestionResult(doc_id=doc_id, status="ready", num_chunks=len(chunks))
 
     except Exception as e:
@@ -130,7 +157,7 @@ def process_s3_key(key: str) -> IngestionResult:
         raise
 
 
-# ---- diagram blocks as helpers ---------------------------------------------
+# ---- helpers ---------------------------------------------
 
 
 def _lookup_document(key: str) -> Optional[dict]:

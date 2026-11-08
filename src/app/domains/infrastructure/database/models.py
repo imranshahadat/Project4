@@ -186,7 +186,7 @@ class GuardrailLog(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     thread_id: Mapped[Optional[str]] = mapped_column(String(64))
     stage: Mapped[str] = mapped_column(String(16))  # input | output
-    guardrail: Mapped[str] = mapped_column(String(64))  # e.g. "pii_filter"
+    guard: Mapped[str] = mapped_column("guardrail", String(64))  # e.g. "pii_filter"
     outcome: Mapped[str] = mapped_column(
         String(16)
     )  # blocked | flagged | redacted | allowed

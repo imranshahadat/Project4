@@ -105,6 +105,53 @@ class RetrievalSettings(_Base):
     )
 
 
+class ChatSettings(_Base):
+    """Chat / RAG pipeline knobs."""
+
+    history_turns: int = Field(default=6, validation_alias="CHAT_HISTORY_TURNS")
+    rewrite_followup: bool = Field(
+        default=True, validation_alias="CHAT_REWRITE_FOLLOWUP"
+    )
+    max_answer_chars: int = Field(
+        default=2000, validation_alias="CHAT_MAX_ANSWER_CHARS"
+    )
+    no_evidence_message: str = Field(
+        default="I could not find supporting evidence in the available documents.",
+        validation_alias="CHAT_NO_EVIDENCE_MSG",
+    )
+
+
+class GuardrailSettings(_Base):
+    """Input/output guardrail configuration.
+
+    Guards run in parallel by default. Add new guards in the factory registry,
+    then list their names here via INPUT_GUARDS / OUTPUT_GUARDS (CSV).
+    """
+
+    enabled: bool = Field(default=True, validation_alias="GUARDRAILS_ENABLED")
+    parallel: bool = Field(default=True, validation_alias="GUARDRAILS_PARALLEL")
+    input_guards: str = Field(
+        default="pii,injection,toxicity", validation_alias="INPUT_GUARDS"
+    )
+    output_guards: str = Field(
+        default="pii,system_prompt_leak", validation_alias="OUTPUT_GUARDS"
+    )
+    pii_block_input: bool = Field(default=False, validation_alias="PII_BLOCK_INPUT")
+    pii_block_output: bool = Field(default=True, validation_alias="PII_BLOCK_OUTPUT")
+    toxicity_banned_words: str = Field(
+        default="", validation_alias="TOXICITY_BANNED_WORDS"
+    )  # CSV
+
+
+class AccessControlSettings(_Base):
+    """Tenant / group / subject access filter for vector-store queries.
+
+    Disabled by default — enable once ingestion tags chunks with tenant_id.
+    """
+
+    enabled: bool = Field(default=False, validation_alias="ACCESS_CONTROL_ENABLED")
+
+
 class AppSettings(_Base):
     # --- providers used today (sensible defaults, .env overrides) ---
     embedding_provider: ProviderEnum = Field(
@@ -141,6 +188,11 @@ class AppSettings(_Base):
     storage_provider: ProviderEnum = Field(
         default=ProviderEnum.AWS, validation_alias="STORAGE_PROVIDER"
     )
+
+    # --- chat pipeline ---
+    chat: ChatSettings = Field(default_factory=ChatSettings)
+    guardrails: GuardrailSettings = Field(default_factory=GuardrailSettings)
+    access_control: AccessControlSettings = Field(default_factory=AccessControlSettings)
 
 
 @lru_cache(maxsize=1)
